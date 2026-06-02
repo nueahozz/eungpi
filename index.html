@@ -106,7 +106,7 @@
         .right-box {
             display: flex;
             flex-direction: column;
-            justify-flex: flex-start;
+            justify-content: flex-start;
             flex-grow: 1;
             height: 101%;
             margin-left: 25px;
@@ -484,7 +484,7 @@
             margin: 0;
         }
 
-        /* 리뷰 */
+        /* 리뷰 전용 UI */
         .filter-tabs {
             display: flex;
             gap: 3px;
@@ -568,6 +568,9 @@
             border-right: none; position: relative; left: -1px; z-index: 12;
         }
     </style>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
 
@@ -592,22 +595,22 @@
             
             <div class="left-inner-box left-main-profile">
                 <div class="profile-photo-area">
-                    <input type="file" id="photoInput" accept="image/*" style="display:none;" onchange="uploadPhoto(this)">
-                    <div class="profile-img-wrapper" onclick="document.getElementById('photoInput').click()">
+                    <input type="file" id="photoInput" accept="image/*" style="display:none;">
+                    <div class="profile-img-wrapper" id="profileImgWrapper">
                         <img id="profileImg" src="" style="display:none;">
                         <div id="photoPlaceholder" class="photo-placeholder">클릭해서<br>정사각형 사진을<br>지정해라..★</div>
                     </div>
                 </div>
 
                 <div class="status-msg-area">
-                    <span id="statusText" class="status-msg-text" ondblclick="editStatus()">지정된 상태메세지가 없다.. (더블클릭 수정)</span>
-                    <input type="text" id="statusInput" class="status-msg-input" style="display:none;" onblur="saveStatus()" onkeydown="if(event.key==='Enter') saveStatus()">
+                    <span id="statusText" class="status-msg-text">지정된 상태메세지가 없다.. (더블클릭 수정)</span>
+                    <input type="text" id="statusInput" class="status-msg-input" style="display:none;">
                 </div>
 
                 <div class="calendar-header">
-                    <span style="cursor:pointer;" onclick="moveMonth(-1)">◀</span>
+                    <span style="cursor:pointer;" id="prevMonthBtn">◀</span>
                     <span id="calendarTitle"></span>
-                    <span style="cursor:pointer;" onclick="moveMonth(1)">▶</span>
+                    <span style="cursor:pointer;" id="nextMonthBtn">▶</span>
                 </div>
                 <div class="calendar-grid" id="calendarGrid"></div>
             </div>
@@ -616,8 +619,8 @@
         <div class="right-box">
             <div class="cy-header">
                 <div class="main-title-area">
-                    <span id="titleText" class="main-title-text" ondblclick="editTitle()">▲ 내 공간에 온 걸 환영해..★</span>
-                    <input type="text" id="titleInput" class="main-title-input" style="display:none;" onblur="saveTitle()" onkeydown="if(event.key==='Enter') saveTitle()">
+                    <span id="titleText" class="main-title-text">▲ 내 공간에 온 걸 환영해..★</span>
+                    <input type="text" id="titleInput" class="main-title-input" style="display:none;">
                 </div>
             </div>
             
@@ -627,7 +630,7 @@
                     <div class="scrollable-body">
                         <div class="miniroom-header-row">
                             <div style="font-weight:bold; color:#2478A6;">Mini Room (Pixel Art..★)</div>
-                            <button class="btn-action btn-delete" style="display:inline-block; padding:1px 6px; font-size:10px;" onclick="clearPixelMiniroom()">지우기</button>
+                            <button class="btn-action btn-delete" style="display:inline-block; padding:1px 6px; font-size:10px;" id="clearPixelBtn">지우기</button>
                         </div>
                         
                         <div class="pixel-miniroom-container">
@@ -638,8 +641,8 @@
                             <div class="home-card">
                                 <div class="card-title">📌 중요 일정</div>
                                 <div class="card-input-row">
-                                    <input type="text" id="todoInput" placeholder="일정 입력.." class="cy-input" style="flex:1; padding:2px;" onkeydown="if(event.key==='Enter') addHomeItem('todo')">
-                                    <button class="btn-action btn-submit" onclick="addHomeItem('todo')" style="padding:2px 6px; font-size:10px;">추가</button>
+                                    <input type="text" id="todoInput" placeholder="일정 입력.." class="cy-input" style="flex:1; padding:2px;">
+                                    <button class="btn-action btn-submit" id="addTodoBtn" style="padding:2px 6px; font-size:10px;">추가</button>
                                 </div>
                                 <ul class="card-list" id="todoListArea"></ul>
                             </div>
@@ -647,8 +650,8 @@
                             <div class="home-card">
                                 <div class="card-title">🎁 위시리스트</div>
                                 <div class="card-input-row">
-                                    <input type="text" id="wishInput" placeholder="위시 입력.." class="cy-input" style="flex:1; padding:2px;" onkeydown="if(event.key==='Enter') addHomeItem('wish')">
-                                    <button class="btn-action btn-submit" onclick="addHomeItem('wish')" style="padding:2px 6px; font-size:10px;">추가</button>
+                                    <input type="text" id="wishInput" placeholder="위시 입력.." class="cy-input" style="flex:1; padding:2px;">
+                                    <button class="btn-action btn-submit" id="addWishBtn" style="padding:2px 6px; font-size:10px;">추가</button>
                                 </div>
                                 <ul class="card-list" id="wishListArea"></ul>
                             </div>
@@ -663,18 +666,18 @@
                     <div class="form-footer">
                         <div class="char-count"><span id="charNum">0</span>/500 자</div>
                         <div class="btn-group">
-                            <button class="btn-action btn-delete" id="deleteBtn" onclick="deleteDiary()">삭제..</button>
-                            <button class="btn-action btn-submit" id="submitBtn" onclick="saveDiary()">등록..</button>
+                            <button class="btn-action btn-delete" id="deleteBtn">삭제..</button>
+                            <button class="btn-action btn-submit" id="submitBtn">등록..</button>
                         </div>
                     </div>
 
                     <div class="right-search-box">
                         <div style="font-weight:bold; color:#2478A6; margin-bottom:4px;">년도/월별 기록찾기</div>
                         <div class="filter-selects">
-                            <select id="yearFilter" class="cy-select" onchange="displayRightDiaries()">
+                            <select id="yearFilter" class="cy-select">
                                 <option value="2026">2026년</option><option value="2025">2025년</option><option value="2024">2024년</option>
                             </select>
-                            <select id="monthFilter" class="cy-select" onchange="displayRightDiaries()">
+                            <select id="monthFilter" class="cy-select">
                                 <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
                                 <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
                                 <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
@@ -705,24 +708,24 @@
                         </select>
                         
                         <input type="text" id="reviewComment" placeholder="감상 기록..★" class="cy-input" style="flex:1; min-width:140px;">
-                        <button class="btn-action btn-submit" onclick="addReviewMsg()" style="margin:0; padding:4px 10px;">기록</button>
+                        <button class="btn-action btn-submit" id="addReviewBtn" style="margin:0; padding:4px 10px;">기록</button>
                     </div>
 
                     <div class="filter-tabs">
-                        <button class="filter-btn active" id="f-type-all" onclick="filterReviewType('all')">전체보기</button>
-                        <button class="filter-btn" id="f-type-movie" onclick="filterReviewType('movie')">영화</button>
-                        <button class="filter-btn" id="f-type-comic" onclick="filterReviewType('comic')">만화</button>
-                        <button class="filter-btn" id="f-type-book" onclick="filterReviewType('book')">책</button>
-                        <button class="filter-btn" id="f-type-etc" onclick="filterReviewType('etc')">기타</button>
+                        <button class="filter-btn active" id="f-type-all">전체보기</button>
+                        <button class="filter-btn" id="f-type-movie">영화</button>
+                        <button class="filter-btn" id="f-type-comic">만화</button>
+                        <button class="filter-btn" id="f-type-book">책</button>
+                        <button class="filter-btn" id="f-type-etc">기타</button>
                     </div>
                     
                     <div class="filter-tabs" style="border-bottom:none; margin-bottom:6px;">
-                        <button class="filter-btn active" id="f-star-all" onclick="filterReviewStar('all')">★ 전체</button>
-                        <button class="filter-btn" id="f-star-5" onclick="filterReviewStar('⭐⭐⭐⭐⭐')">5점</button>
-                        <button class="filter-btn" id="f-star-4" onclick="filterReviewStar('⭐⭐⭐⭐')">4점</button>
-                        <button class="filter-btn" id="f-star-3" onclick="filterReviewStar('⭐⭐⭐')">3점</button>
-                        <button class="filter-btn" id="f-star-2" onclick="filterReviewStar('⭐⭐')">2점</button>
-                        <button class="filter-btn" id="f-star-1" onclick="filterReviewStar('⭐')">1점</button>
+                        <button class="filter-btn active" id="f-star-all">★ 전체</button>
+                        <button class="filter-btn" id="f-star-5">5점</button>
+                        <button class="filter-btn" id="f-star-4">4점</button>
+                        <button class="filter-btn" id="f-star-3">3점</button>
+                        <button class="filter-btn" id="f-star-2">2점</button>
+                        <button class="filter-btn" id="f-star-1">1점</button>
                     </div>
 
                     <div class="scrollable-body">
@@ -734,7 +737,7 @@
                     <div class="input-row">
                         <input type="text" id="guestName" placeholder="이름" class="cy-input" style="width:60px;">
                         <input type="text" id="guestMsg" placeholder="일촌 평이나 남기고 가라..★" class="cy-input" style="flex:1;">
-                        <button class="btn-action btn-submit" onclick="addGuestMsg()" style="margin:0; padding:4px 10px;">남기기</button>
+                        <button class="btn-action btn-submit" id="addGuestBtn" style="margin:0; padding:4px 10px;">남기기</button>
                     </div>
                     <div class="scrollable-body">
                         <div class="board-list" id="guestbookListArea"></div>
@@ -747,18 +750,15 @@
     </div>
 
     <div class="cy-tabs">
-        <div class="cy-tab active" id="tab-home" onclick="switchTab('home')">홈</div>
-        <div class="cy-tab" id="tab-diary" onclick="switchTab('diary')">다이어리</div>
-        <div class="cy-tab" id="tab-review" onclick="switchTab('review')">리뷰</div>
-        <div class="cy-tab" id="tab-guestbook" onclick="switchTab('guestbook')">방명록</div>
+        <div class="cy-tab active" id="tab-home">홈</div>
+        <div class="cy-tab" id="tab-diary">다이어리</div>
+        <div class="cy-tab" id="tab-review">리뷰</div>
+        <div class="cy-tab" id="tab-guestbook">방명록</div>
     </div>
 </div>
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-analytics.js";
-    import { getDatabase, ref, set, onValue, push, remove } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
-
+<script>
+    // 파이어베이스 구버전(v8) 연동 설정
     const firebaseConfig = {
         apiKey: "AIzaSyAQdepCMLBffqjEhAvWM4NclP1P80MiL5M",
         authDomain: "eungview-5e3f2.firebaseapp.com",
@@ -766,13 +766,11 @@
         storageBucket: "eungview-5e3f2.firebasestorage.app",
         messagingSenderId: "513419971849",
         appId: "1:513419971849:web:ae7e4e8ebdaf7d182e97d8",
-        measurementId: "G-6VRHB68Y0X",
         databaseURL: "https://eungview-5e3f2-default-rtdb.firebaseio.com/"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
-    const db = getDatabase(app);
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
     const korDays = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
     let currentSelectedKey = ""; 
@@ -800,16 +798,14 @@
         monthFilter.value = String(calMonth + 1).padStart(2, '0');
         setTargetDate(`${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`);
 
-        // [수정] Firebase 대기 시간에 흰 화면이 뜨지 않도록 구조적 선행 렌더링 호출
         renderCalendar();
         renderPixelMiniroom();
 
-        onValue(ref(db, 'cyDiaryTitle'), (snapshot) => {
-            const val = snapshot.val();
-            document.getElementById('titleText').innerText = val || "▲ 내 공간에 온 걸 환영해..★";
+        db.ref('cyDiaryTitle').on('value', (snapshot) => {
+            document.getElementById('titleText').innerText = snapshot.val() || "▲ 내 공간에 온 걸 환영해..★";
         });
 
-        onValue(ref(db, 'cyProfilePhoto'), (snapshot) => {
+        db.ref('cyProfilePhoto').on('value', (snapshot) => {
             const val = snapshot.val();
             if (val) {
                 document.getElementById('profileImg').src = val;
@@ -821,42 +817,41 @@
             }
         });
 
-        onValue(ref(db, 'cyStatusMsg'), (snapshot) => {
-            const val = snapshot.val();
-            document.getElementById('statusText').innerText = val || "지정된 상태메세지가 없다.. (더블클릭 수정)";
+        db.ref('cyStatusMsg').on('value', (snapshot) => {
+            document.getElementById('statusText').innerText = snapshot.val() || "지정된 상태메세지가 없다.. (더블클릭 수정)";
         });
 
-        onValue(ref(db, 'cyPixelMiniroom'), (snapshot) => {
+        db.ref('cyPixelMiniroom').on('value', (snapshot) => {
             const val = snapshot.val();
             pixelData = val ? JSON.parse(val) : Array(200).fill(0);
             renderPixelMiniroom();
         });
 
-        onValue(ref(db, 'cyHomeTodo'), (snapshot) => {
+        db.ref('cyHomeTodo').on('value', (snapshot) => {
             renderHomeList('todo', snapshot.val() || {});
         });
 
-        onValue(ref(db, 'cyHomeWish'), (snapshot) => {
+        db.ref('cyHomeWish').on('value', (snapshot) => {
             renderHomeList('wish', snapshot.val() || {});
         });
 
-        onValue(ref(db, 'cyDiary'), (snapshot) => {
+        db.ref('cyDiary').on('value', (snapshot) => {
             diariesGlobal = snapshot.val() || {};
             renderCalendar();
             displayRightDiaries();
             checkDiaryByDate(currentSelectedKey);
         });
 
-        onValue(ref(db, 'cyReviewData'), (snapshot) => {
+        db.ref('cyReviewData').on('value', (snapshot) => {
             loadReviewMsgs(snapshot.val() || {});
         });
 
-        onValue(ref(db, 'cyGuestbookData'), (snapshot) => {
+        db.ref('cyGuestbookData').on('value', (snapshot) => {
             loadGuestbookMsgs(snapshot.val() || {});
         });
     };
 
-    window.switchTab = function(tabName) {
+    function switchTab(tabName) {
         document.querySelectorAll('.cy-tab').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.menu-content').forEach(el => el.classList.remove('active'));
         document.getElementById(`tab-${tabName}`).classList.add('active');
@@ -869,26 +864,31 @@
         Object.keys(itemsObj).forEach((key) => {
             const li = document.createElement('li');
             li.className = 'card-item';
-            li.innerHTML = `
-                <input type="checkbox" onclick="removeHomeItem('${type}', '${key}')">
-                <span>${itemsObj[key]}</span>
-            `;
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.onclick = () => removeHomeItem(type, key);
+            
+            const span = document.createElement('span');
+            span.innerText = itemsObj[key];
+            
+            li.appendChild(checkbox);
+            li.appendChild(span);
             area.appendChild(li);
         });
     }
 
-    window.addHomeItem = function(type) {
+    function addHomeItem(type) {
         const input = document.getElementById(type === 'todo' ? 'todoInput' : 'wishInput');
         const value = input.value.trim();
         if(!value) return;
 
-        const listRef = ref(db, type === 'todo' ? 'cyHomeTodo' : 'cyHomeWish');
-        push(listRef, value);
+        db.ref(type === 'todo' ? 'cyHomeTodo' : 'cyHomeWish').push(value);
         input.value = '';
     }
 
-    window.removeHomeItem = function(type, key) {
-        remove(ref(db, `${type === 'todo' ? 'cyHomeTodo' : 'cyHomeWish'}/${key}`));
+    function removeHomeItem(type, key) {
+        db.ref(`${type === 'todo' ? 'cyHomeTodo' : 'cyHomeWish'}/${key}`).remove();
     }
 
     function renderPixelMiniroom() {
@@ -901,18 +901,13 @@
             
             cell.onclick = function() {
                 pixelData[i] = pixelData[i] === 0 ? 1 : 0;
-                set(ref(db, 'cyPixelMiniroom'), JSON.stringify(pixelData));
+                db.ref('cyPixelMiniroom').set(JSON.stringify(pixelData));
             };
             board.appendChild(cell);
         }
     }
 
-    window.clearPixelMiniroom = function() {
-        pixelData = Array(200).fill(0);
-        set(ref(db, 'cyPixelMiniroom'), JSON.stringify(pixelData));
-    }
-
-    window.addReviewMsg = function() {
+    function addReviewMsg() {
         const type = document.getElementById('reviewType').value;
         const title = document.getElementById('reviewTitle').value.trim();
         const star = document.getElementById('reviewStar').value;
@@ -921,8 +916,7 @@
         if(!star) { alert('별점을 선택해라..★'); return; }
         if(!title || !comment) { alert('제목과 감상평을 모두 채워라..★'); return; }
 
-        const reviewRef = ref(db, 'cyReviewData');
-        push(reviewRef, {
+        db.ref('cyReviewData').push({
             type, 
             title, 
             star, 
@@ -933,44 +927,6 @@
         document.getElementById('reviewTitle').value = '';
         document.getElementById('reviewStar').value = '';
         document.getElementById('reviewComment').value = '';
-    }
-
-    window.addSubReview = function(reviewId) {
-        const inputField = document.getElementById(`subInput-${reviewId}`);
-        const text = inputField.value.trim();
-        if(!text) { alert('추가 리뷰 내용을 입력해라..★'); return; }
-
-        const subRef = ref(db, `cyReviewData/${reviewId}/subReviews`);
-        push(subRef, {
-            comment: text,
-            date: new Date().toLocaleDateString()
-        });
-        inputField.value = '';
-    }
-
-    window.deleteSubReview = function(reviewId, subId) {
-        if(!confirm('이 추가 리뷰를 삭제하겠느냐..★')) return;
-        remove(ref(db, `cyReviewData/${reviewId}/subReviews/${subId}`));
-    }
-
-    window.deleteReviewMsg = function(id) {
-        if(!confirm('리뷰 기록을 삭제하겠느냐..★')) return;
-        remove(ref(db, `cyReviewData/${id}`));
-    }
-
-    window.filterReviewType = function(type) {
-        currentReviewTypeFilter = type;
-        document.querySelectorAll('[id^="f-type-"]').forEach(btn => btn.classList.remove('active'));
-        document.getElementById(`f-type-${type}`).classList.add('active');
-        onValue(ref(db, 'cyReviewData'), (snapshot) => { loadReviewMsgs(snapshot.val() || {}); }, { onlyOnce: true });
-    }
-
-    window.filterReviewStar = function(star) {
-        currentReviewStarFilter = star;
-        document.querySelectorAll('[id^="f-star-"]').forEach(btn => btn.classList.remove('active'));
-        let targetId = star === 'all' ? 'all' : star.length; 
-        document.getElementById(`f-star-${targetId}`).classList.add('active');
-        onValue(ref(db, 'cyReviewData'), (snapshot) => { loadReviewMsgs(snapshot.val() || {}); }, { onlyOnce: true });
     }
 
     function loadReviewMsgs(dataObj) {
@@ -997,7 +953,7 @@
                             <span>ㄴ ${s.comment}</span>
                             <div>
                                 <span style="color:#aaa; font-size:9px;">${s.date}</span>
-                                <span style="color:#ff8888; cursor:pointer; margin-left:4px;" onclick="deleteSubReview('${r.id}', '${sKey}')">[x]</span>
+                                <span class="del-sub-btn" data-rid="${r.id}" data-sid="${sKey}" style="color:#ff8888; cursor:pointer; margin-left:4px;">[x]</span>
                             </div>
                         </div>
                     `;
@@ -1012,41 +968,75 @@
                     </div>
                     <span style="font-size:11px; font-weight:normal;">${r.star}</span>
                 </div>
-                <div style="padding:4px 0; color:#555; display:flex; justify-content:between; align-items:center;">
+                <div style="padding:4px 0; color:#555; display:flex; justify-content:content; align-items:center;">
                     <span style="flex:1;">${r.comment}</span>
                     <span style="color:#aaa; font-size:10px; margin-left:10px;">${r.date}</span>
-                    <span style="color:#ff8888; cursor:pointer; font-size:10px; margin-left:8px;" onclick="deleteReviewMsg('${r.id}')">[X]</span>
+                    <span class="del-rev-btn" data-id="${r.id}" style="color:#ff8888; cursor:pointer; font-size:10px; margin-left:8px;">[X]</span>
                 </div>
                 
                 <div class="sub-review-section">
                     <div class="sub-review-list">${subListHtml || '<div style="color:#aaa; font-size:10px;">작성된 추가 리뷰가 없다..★</div>'}</div>
                     <div class="sub-review-input-row">
                         <input type="text" id="subInput-${r.id}" placeholder="이 리뷰에 생각 더하기..★" class="cy-input" style="flex:1; font-size:10px; padding:2px;">
-                        <button class="btn-action btn-submit" style="padding:2px 6px; font-size:10px; background:#2478A6;" onclick="addSubReview('${r.id}')">추가</button>
+                        <button class="btn-action btn-submit add-sub-btn" data-id="${r.id}" style="padding:2px 6px; font-size:10px; background:#2478A6;">추가</button>
                     </div>
                 </div>
             `;
+            
+            el.querySelector('.del-rev-btn').onclick = () => {
+                if(!confirm('리뷰 기록을 삭제하겠느냐..★')) return;
+                db.ref(`cyReviewData/${r.id}`).remove();
+            };
+            
+            el.querySelectorAll('.del-sub-btn').forEach(btn => {
+                btn.onclick = () => {
+                    if(!confirm('이 추가 리뷰를 삭제하겠느냐..★')) return;
+                    db.ref(`cyReviewData/${btn.dataset.rid}/subReviews/${btn.dataset.sid}`).remove();
+                };
+            });
+
+            el.querySelector('.add-sub-btn').onclick = () => {
+                const inputField = document.getElementById(`subInput-${r.id}`);
+                const text = inputField.value.trim();
+                if(!text) { alert('추가 리뷰 내용을 입력해라..★'); return; }
+                db.ref(`cyReviewData/${r.id}/subReviews`).push({
+                    comment: text,
+                    date: new Date().toLocaleDateString()
+                });
+                inputField.value = '';
+            };
+
             area.appendChild(el);
         });
     }
 
-    window.addGuestMsg = function() {
+    function filterReviewType(type) {
+        currentReviewTypeFilter = type;
+        document.querySelectorAll('[id^="f-type-"]').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`f-type-${type}`).classList.add('active');
+        db.ref('cyReviewData').once('value', (snapshot) => { loadReviewMsgs(snapshot.val() || {}); });
+    }
+
+    function filterReviewStar(star) {
+        currentReviewStarFilter = star;
+        document.querySelectorAll('[id^="f-star-"]').forEach(btn => btn.classList.remove('active'));
+        let targetId = star === 'all' ? 'all' : star.length; 
+        document.getElementById(`f-star-${targetId}`).classList.add('active');
+        db.ref('cyReviewData').once('value', (snapshot) => { loadReviewMsgs(snapshot.val() || {}); });
+    }
+
+    function addGuestMsg() {
         const name = document.getElementById('guestName').value.trim();
         const msg = document.getElementById('guestMsg').value.trim();
         if(!name || !msg) { alert('이름과 한마디를 다 채워라..★'); return; }
 
-        push(ref(db, 'cyGuestbookData'), {
+        db.ref('cyGuestbookData').push({
             name: name,
             msg: msg,
             date: new Date().toLocaleDateString()
         });
         document.getElementById('guestName').value = '';
         document.getElementById('guestMsg').value = '';
-    }
-
-    window.deleteGuestMsg = function(id) {
-        if(!confirm('이 방명록 글을 삭제하겠느냐..★')) return;
-        remove(ref(db, `cyGuestbookData/${id}`));
     }
 
     function loadGuestbookMsgs(dataObj) {
@@ -1061,22 +1051,24 @@
                     <span>🧑 ${m.name}</span>
                     <div>
                         <span style="color:#aaa; font-size:10px; margin-right:6px;">${m.date}</span>
-                        <span style="color:#ff8888; cursor:pointer; font-size:10px;" onclick="deleteGuestMsg('${m.id}')">[X]</span>
+                        <span class="del-guest-btn" style="color:#ff8888; cursor:pointer; font-size:10px;">[X]</span>
                     </div>
                 </div>
                 <div style="padding:4px 0; color:#555;">${m.msg}</div>
             `;
+            el.querySelector('.del-guest-btn').onclick = () => {
+                if(!confirm('이 방명록 글을 삭제하겠느냐..★')) return;
+                db.ref(`cyGuestbookData/${m.id}`).remove();
+            };
             area.appendChild(el);
         });
     }
 
-    // [수정] 캘린더 월요일 시작형 배치 연산 로직 전면 변경
     function renderCalendar() {
         document.getElementById('calendarTitle').innerText = `${calYear}. ${String(calMonth + 1).padStart(2, '0')}`;
         const grid = document.getElementById('calendarGrid');
         grid.innerHTML = '';
 
-        // 월요일 시작 헤더 배치
         const dayLabels = ['월', '화', '수', '목', '금', '토', '일'];
         dayLabels.forEach(lbl => {
             const el = document.createElement('div');
@@ -1090,7 +1082,6 @@
         const firstDay = new Date(calYear, calMonth, 1);
         const lastDay = new Date(calYear, calMonth + 1, 0);
         
-        // 일요일(0)을 6으로, 월~토(1~6)를 0~5로 매핑하도록 인덱스 조정
         let startDayIdx = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1; 
 
         const prevLastDay = new Date(calYear, calMonth, 0).getDate();
@@ -1123,7 +1114,7 @@
         }
     }
 
-    window.moveMonth = function(dir) {
+    function moveMonth(dir) {
         calMonth += dir;
         if (calMonth > 11) { calMonth = 0; calYear++; }
         else if (calMonth < 0) { calMonth = 11; calYear--; }
@@ -1152,22 +1143,22 @@
         }
     }
 
-    window.saveDiary = function() {
+    function saveDiary() {
         const text = textarea.value.trim();
         if(!text) { alert('내용을 입력해라.. 인간아..'); return; }
-        set(ref(db, `cyDiary/${currentSelectedKey}`), text).then(() => {
+        db.ref(`cyDiary/${currentSelectedKey}`).set(text).then(() => {
             alert(submitBtn.innerText === '수정..' ? '일기가 수정되었다..' : '일기가 등록 완료..');
         });
     }
 
-    window.deleteDiary = function() {
+    function deleteDiary() {
         if(!confirm('정말로 이 날의 기억을 지우겠느냐..★')) return;
-        remove(ref(db, `cyDiary/${currentSelectedKey}`)).then(() => {
+        db.ref(`cyDiary/${currentSelectedKey}`).remove().then(() => {
             alert('기억이 깨끗이 지워졌다..');
         });
     }
 
-    window.displayRightDiaries = function() {
+    function displayRightDiaries() {
         const listContainer = document.getElementById('rightDiaryList');
         listContainer.innerHTML = '';
         const sortedKeys = Object.keys(diariesGlobal).sort();
@@ -1192,50 +1183,99 @@
         if (count === 0) listContainer.innerHTML = `<div style="color:#999; text-align:center; padding:5px 0;">이 달엔 남긴 기억이 없다..</div>`;
     }
 
-    window.uploadPhoto = function(input) {
+    function uploadPhoto(input) {
         if (input.files && input.files[0]) {
             const reader = new FileReader();
             reader.onload = function(e) {
-                set(ref(db, 'cyProfilePhoto'), e.target.result);
+                db.ref('cyProfilePhoto').set(e.target.result);
             };
             reader.readAsDataURL(input.files[0]);
         }
     }
 
-    window.editStatus = function() {
+    function editStatus() {
         const textSpan = document.getElementById('statusText');
         const inputField = document.getElementById('statusInput');
         inputField.value = textSpan.innerText.includes("지정된 상태메세지가 없다") ? "" : textSpan.innerText;
         textSpan.style.display = 'none'; inputField.style.display = 'block'; inputField.focus();
     }
-    window.saveStatus = function() {
+    function saveStatus() {
         const inputField = document.getElementById('statusInput');
         const newMsg = inputField.value.trim();
-        set(ref(db, 'cyStatusMsg'), newMsg || null);
+        db.ref('cyStatusMsg').set(newMsg || null);
         inputField.style.display = 'none';
         document.getElementById('statusText').style.display = 'block';
     }
 
-    window.editTitle = function() {
+    function editTitle() {
         const textSpan = document.getElementById('titleText');
         const inputField = document.getElementById('titleInput');
         inputField.value = textSpan.innerText;
         textSpan.style.display = 'none'; inputField.style.display = 'inline-block'; inputField.focus();
     }
-    window.saveTitle = function() {
+    function saveTitle() {
         const inputField = document.getElementById('titleInput');
         const newTitle = inputField.value.trim();
-        set(ref(db, 'cyDiaryTitle'), newTitle || null);
+        db.ref('cyDiaryTitle').set(newTitle || null);
         inputField.style.display = 'none';
         document.getElementById('titleText').style.display = 'block';
     }
 
+    // 이벤트 바인딩
+    document.getElementById('tab-home').onclick = () => switchTab('home');
+    document.getElementById('tab-diary').onclick = () => switchTab('diary');
+    document.getElementById('tab-review').onclick = () => switchTab('review');
+    document.getElementById('tab-guestbook').onclick = () => switchTab('guestbook');
+
+    document.getElementById('addTodoBtn').onclick = () => addHomeItem('todo');
+    document.getElementById('todoInput').onkeydown = (e) => { if(e.key==='Enter') addHomeItem('todo'); };
+    document.getElementById('addWishBtn').onclick = () => addHomeItem('wish');
+    document.getElementById('wishInput').onkeydown = (e) => { if(e.key==='Enter') addHomeItem('wish'); };
+
+    document.getElementById('clearPixelBtn').onclick = () => {
+        pixelData = Array(200).fill(0);
+        db.ref('cyPixelMiniroom').set(JSON.stringify(pixelData));
+    };
+
+    document.getElementById('addReviewBtn').onclick = addReviewMsg;
+    document.getElementById('addGuestBtn').onclick = addGuestMsg;
+
+    document.getElementById('f-type-all').onclick = () => filterReviewType('all');
+    document.getElementById('f-type-movie').onclick = () => filterReviewType('movie');
+    document.getElementById('f-type-comic').onclick = () => filterReviewType('comic');
+    document.getElementById('f-type-book').onclick = () => filterReviewType('book');
+    document.getElementById('f-type-etc').onclick = () => filterReviewType('etc');
+
+    document.getElementById('f-star-all').onclick = () => filterReviewStar('all');
+    document.getElementById('f-star-5').onclick = () => filterReviewStar('⭐⭐⭐⭐⭐');
+    document.getElementById('f-star-4').onclick = () => filterReviewStar('⭐⭐⭐⭐');
+    document.getElementById('f-star-3').onclick = () => filterReviewStar('⭐⭐⭐');
+    document.getElementById('f-star-2').onclick = () => filterReviewStar('⭐⭐');
+    document.getElementById('f-star-1').onclick = () => filterReviewStar('⭐');
+
+    document.getElementById('prevMonthBtn').onclick = () => moveMonth(-1);
+    document.getElementById('nextMonthBtn').onclick = () => moveMonth(1);
+
+    submitBtn.onclick = saveDiary;
+    deleteBtn.onclick = deleteDiary;
+
+    yearFilter.onchange = displayRightDiaries;
+    monthFilter.onchange = displayRightDiaries;
+
+    document.getElementById('profileImgWrapper').onclick = () => document.getElementById('photoInput').click();
+    document.getElementById('photoInput').onchange = function() { uploadPhoto(this); };
+
+    document.getElementById('statusText').ondblclick = editStatus;
+    document.getElementById('statusInput').onblur = saveStatus;
+    document.getElementById('statusInput').onkeydown = (e) => { if(e.key==='Enter') saveStatus(); };
+
+    document.getElementById('titleText').ondblclick = editTitle;
+    document.getElementById('titleInput').onblur = saveTitle;
+    document.getElementById('titleInput').onkeydown = (e) => { if(e.key==='Enter') saveTitle(); };
+
     textarea.addEventListener('input', function() {
         document.getElementById('charNum').innerText = this.value.length;
     });
-    
-    document.getElementById('statusText').onclick = window.editStatus;
-    document.getElementById('titleText').onclick = window.editTitle;
 </script>
 
 </body>
