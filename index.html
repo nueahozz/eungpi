@@ -333,7 +333,7 @@
             color: #555;
             padding: 1px 0;
             white-space: normal;
-	    word-break: break-all;	
+            word-break: break-all;	
             overflow: hidden;
             text-overflow: ellipsis;
         }
@@ -486,13 +486,19 @@
         }
 
         /* 리뷰 전용 UI */
-        .filter-tabs {
+        .filter-row {
             display: flex;
-            gap: 3px;
-            margin-bottom: 4px;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 6px;
             border-bottom: 1px solid #ddd;
             padding-bottom: 4px;
             flex-wrap: wrap;
+        }
+        .filter-tabs {
+            display: flex;
+            gap: 3px;
+            align-items: center;
         }
         .filter-btn {
             background: #eee;
@@ -712,21 +718,27 @@
                         <button class="btn-action btn-submit" id="addReviewBtn" style="margin:0; padding:4px 10px;">기록</button>
                     </div>
 
-                    <div class="filter-tabs">
-                        <button class="filter-btn active" id="f-type-all">전체보기</button>
-                        <button class="filter-btn" id="f-type-movie">영화</button>
-                        <button class="filter-btn" id="f-type-comic">만화</button>
-                        <button class="filter-btn" id="f-type-book">책</button>
-                        <button class="filter-btn" id="f-type-etc">기타</button>
+                    <div class="input-row" style="margin-bottom: 6px;">
+                        <input type="text" id="reviewSearchInput" placeholder="🔍 찾고 싶은 작품 제목을 입력해라..★" class="cy-input" style="width: 100%; background: #fcfcfc;">
                     </div>
-                    
-                    <div class="filter-tabs" style="border-bottom:none; margin-bottom:6px;">
-                        <button class="filter-btn active" id="f-star-all">★ 전체</button>
-                        <button class="filter-btn" id="f-star-5">5점</button>
-                        <button class="filter-btn" id="f-star-4">4점</button>
-                        <button class="filter-btn" id="f-star-3">3점</button>
-                        <button class="filter-btn" id="f-star-2">2점</button>
-                        <button class="filter-btn" id="f-star-1">1점</button>
+
+                    <div class="filter-row">
+                        <div class="filter-tabs">
+                            <button class="filter-btn active" id="f-type-all">전체보기</button>
+                            <button class="filter-btn" id="f-type-movie">영화</button>
+                            <button class="filter-btn" id="f-type-comic">만화</button>
+                            <button class="filter-btn" id="f-type-book">책</button>
+                            <button class="filter-btn" id="f-type-etc">기타</button>
+                        </div>
+                        
+                        <div class="filter-tabs">
+                            <button class="filter-btn active" id="f-star-all">★ 전체</button>
+                            <button class="filter-btn" id="f-star-5">5점</button>
+                            <button class="filter-btn" id="f-star-4">4점</button>
+                            <button class="filter-btn" id="f-star-3">3점</button>
+                            <button class="filter-btn" id="f-star-2">2점</button>
+                            <button class="filter-btn" id="f-star-1">1점</button>
+                        </div>
                     </div>
 
                     <div class="scrollable-body">
@@ -759,7 +771,6 @@
 </div>
 
 <script>
-    // 파이어베이스 구버전(v8) 연동 설정
     const firebaseConfig = {
         apiKey: "AIzaSyAQdepCMLBffqjEhAvWM4NclP1P80MiL5M",
         authDomain: "eungview-5e3f2.firebaseapp.com",
@@ -779,6 +790,7 @@
     
     let currentReviewTypeFilter = 'all';
     let currentReviewStarFilter = 'all';
+    let currentReviewSearchKeyword = '';
 
     const textarea = document.getElementById('diaryInput');
     const submitBtn = document.getElementById('submitBtn');
@@ -850,6 +862,13 @@
         db.ref('cyGuestbookData').on('value', (snapshot) => {
             loadGuestbookMsgs(snapshot.val() || {});
         });
+
+        document.getElementById('reviewSearchInput').oninput = function() {
+            currentReviewSearchKeyword = this.value.trim().toLowerCase();
+            db.ref('cyReviewData').once('value', (snapshot) => {
+                loadReviewMsgs(snapshot.val() || {});
+            });
+        };
     };
 
     function switchTab(tabName) {
@@ -933,18 +952,21 @@
     function loadReviewMsgs(dataObj) {
         const area = document.getElementById('reviewListArea');
         area.innerHTML = '';
-        
+    
         let list = Object.keys(dataObj).map(key => ({ id: key, ...dataObj[key] })).reverse();
-        
+    
         if(currentReviewTypeFilter !== 'all') list = list.filter(r => r.type === currentReviewTypeFilter);
         if(currentReviewStarFilter !== 'all') list = list.filter(r => r.star === currentReviewStarFilter);
-        
+        if(currentReviewSearchKeyword !== '') {
+            list = list.filter(r => r.title && r.title.toLowerCase().includes(currentReviewSearchKeyword));
+        }
+    
         const typeNames = { movie: '영화', comic: '만화', book: '책', etc: '기타' };
 
         list.forEach(r => {
             const el = document.createElement('div');
             el.className = 'board-item';
-            
+        
             let subListHtml = '';
             if(r.subReviews) {
                 Object.keys(r.subReviews).forEach(sKey => {
@@ -967,14 +989,14 @@
                         <span class="tag-badge tag-${r.type}">${typeNames[r.type] || '기타'}</span>
                         <span style="color:#333; font-weight:bold;">${r.title}</span>
                     </div>
-                    <span style="font-size:11px; font-weight:normal;">${r.star}</span>
+                    <span id="star-display-${r.id}" class="review-star-text" title="더블클릭하여 별점 수정" style="font-size:11px; font-weight:normal; cursor:pointer;">${r.star}</span>
                 </div>
                 <div style="padding:4px 0; color:#555; display:flex; justify-content:content; align-items:center;">
                     <span style="flex:1;">${r.comment}</span>
                     <span style="color:#aaa; font-size:10px; margin-left:10px;">${r.date}</span>
                     <span class="del-rev-btn" data-id="${r.id}" style="color:#ff8888; cursor:pointer; font-size:10px; margin-left:8px;">[X]</span>
                 </div>
-                
+            
                 <div class="sub-review-section">
                     <div class="sub-review-list">${subListHtml || '<div style="color:#aaa; font-size:10px;">작성된 추가 리뷰가 없다..★</div>'}</div>
                     <div class="sub-review-input-row">
@@ -983,12 +1005,42 @@
                     </div>
                 </div>
             `;
-            
+        
+            const starDisplay = el.querySelector(`#star-display-${r.id}`);
+            starDisplay.ondblclick = function() {
+                if (this.querySelector('select')) return;
+
+                const currentStar = this.innerText;
+                this.innerHTML = `
+                    <select id="editStar-${r.id}" class="cy-input" style="font-size:10px; padding:0; height:18px;">
+                        <option value="⭐⭐⭐⭐⭐" ${currentStar === '⭐⭐⭐⭐⭐' ? 'selected' : ''}>⭐⭐⭐⭐⭐</option>
+                        <option value="⭐⭐⭐⭐" ${currentStar === '⭐⭐⭐⭐' ? 'selected' : ''}>⭐⭐⭐⭐</option>
+                        <option value="⭐⭐⭐" ${currentStar === '⭐⭐⭐' ? 'selected' : ''}>⭐⭐⭐</option>
+                        <option value="⭐⭐" ${currentStar === '⭐⭐' ? 'selected' : ''}>⭐⭐</option>
+                        <option value="⭐" ${currentStar === '⭐' ? 'selected' : ''}>⭐</option>
+                    </select>
+                `;
+
+                const selectBox = document.getElementById(`editStar-${r.id}`);
+                selectBox.focus();
+
+                selectBox.onblur = function() {
+                    const nextStar = this.value;
+                    db.ref(`cyReviewData/${r.id}/star`).set(nextStar);
+                };
+
+                selectBox.onkeydown = function(e) {
+                    if (e.key === 'Enter') {
+                        this.blur();
+                    }
+                };
+            };
+
             el.querySelector('.del-rev-btn').onclick = () => {
                 if(!confirm('리뷰 기록을 삭제하겠느냐..★')) return;
                 db.ref(`cyReviewData/${r.id}`).remove();
             };
-            
+        
             el.querySelectorAll('.del-sub-btn').forEach(btn => {
                 btn.onclick = () => {
                     if(!confirm('이 추가 리뷰를 삭제하겠느냐..★')) return;
@@ -1208,13 +1260,14 @@
         document.getElementById('statusText').style.display = 'block';
     }
 
-    function editTitle() {
+    // 대문 수정 기능 추가용 전역 할당
+    window.editTitle = function() {
         const textSpan = document.getElementById('titleText');
         const inputField = document.getElementById('titleInput');
         inputField.value = textSpan.innerText;
         textSpan.style.display = 'none'; inputField.style.display = 'inline-block'; inputField.focus();
     }
-    function saveTitle() {
+    window.saveTitle = function() {
         const inputField = document.getElementById('titleInput');
         const newTitle = inputField.value.trim();
         db.ref('cyDiaryTitle').set(newTitle || null);
@@ -1270,9 +1323,9 @@
     document.getElementById('statusInput').onblur = saveStatus;
     document.getElementById('statusInput').onkeydown = (e) => { if(e.key==='Enter') saveStatus(); };
 
-    document.getElementById('titleText').ondblclick = editTitle;
-    document.getElementById('titleInput').onblur = saveTitle;
-    document.getElementById('titleInput').onkeydown = (e) => { if(e.key==='Enter') saveTitle(); };
+    document.getElementById('titleText').ondblclick = window.editTitle;
+    document.getElementById('titleInput').onblur = window.saveTitle;
+    document.getElementById('titleInput').onkeydown = (e) => { if(e.key==='Enter') window.saveTitle(); };
 
     textarea.addEventListener('input', function() {
         document.getElementById('charNum').innerText = this.value.length;
