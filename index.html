@@ -616,7 +616,6 @@
                     <div class="scrollable-body">
                         <div style="font-weight:bold; color:#2478A6; margin-bottom:5px;">Mini Room</div>
                         
-                        <!-- 미니룸 구역 클릭 시 사진 업로드 연동 -->
                         <input type="file" id="miniroomPhotoInput" accept="image/*" style="display:none;" onchange="uploadMiniroomPhoto(this)">
                         <div class="miniroom-box" id="miniroomBox" onclick="document.getElementById('miniroomPhotoInput').click()">
                             <span class="miniroom-text" id="miniroomPlaceholder">🏠 미니룸 클릭 시 사진 변경 가능..★</span>
@@ -696,7 +695,6 @@
                         <button class="btn-action btn-submit" onclick="addReviewMsg()" style="margin:0; padding:4px 10px;">기록</button>
                     </div>
 
-                    <!-- 카테고리 필터 탭 -->
                     <div class="filter-tabs">
                         <button class="filter-btn active" id="f-type-all" onclick="filterReviewType('all')">전체보기</button>
                         <button class="filter-btn" id="f-type-movie" onclick="filterReviewType('movie')">영화</button>
@@ -705,7 +703,6 @@
                         <button class="filter-btn" id="f-type-etc" onclick="filterReviewType('etc')">기타</button>
                     </div>
                     
-                    <!-- 별점별 필터 탭 추가 -->
                     <div class="filter-tabs" style="border-bottom:none; margin-bottom:6px;">
                         <button class="filter-btn active" id="f-star-all" onclick="filterReviewStar('all')">★ 전체</button>
                         <button class="filter-btn" id="f-star-5" onclick="filterReviewStar('⭐⭐⭐⭐⭐')">5점</button>
@@ -744,12 +741,29 @@
     </div>
 </div>
 
-<script>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+    // 파이어베이스 설정 데이터
+    const firebaseConfig = {
+        apiKey: "AIzaSyAQdepCMLBffqjEhAvWM4NclP1P80MiL5M",
+        authDomain: "eungview-5e3f2.firebaseapp.com",
+        projectId: "eungview-5e3f2",
+        storageBucket: "eungview-5e3f2.firebasestorage.app",
+        messagingSenderId: "513419971849",
+        appId: "1:513419971849:web:ae7e4e8ebdaf7d182e97d8",
+        measurementId: "G-6VRHB68Y0X"
+    };
+
+    // Firebase 초기화
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
     const korDays = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
     let currentSelectedKey = ""; 
     let calYear, calMonth; 
     
-    // 리뷰 멀티 필터링을 위한 상태 값 변경
     let currentReviewTypeFilter = 'all';
     let currentReviewStarFilter = 'all';
 
@@ -760,14 +774,15 @@
     const yearFilter = document.getElementById('yearFilter');
     const monthFilter = document.getElementById('monthFilter');
 
-    window.onload = function() {
-        loadTitle();
-        loadProfilePhoto();
-        loadMiniroomPhoto(); // 미니룸 사진 로드 추가
-        loadStatus();
-        loadReviewMsgs();
-        loadGuestbookMsgs();
-        loadHomeLists();
+    // 초기 실행 환경 설정
+    window.onload = async function() {
+        await loadTitle();
+        await loadProfilePhoto();
+        await loadMiniroomPhoto(); 
+        await loadStatus();
+        await loadReviewMsgs();
+        await loadGuestbookMsgs();
+        await loadHomeLists();
         
         const today = new Date();
         calYear = today.getFullYear();
@@ -776,28 +791,119 @@
         yearFilter.value = String(calYear);
         monthFilter.value = String(calMonth + 1).padStart(2, '0');
 
-        setTargetDate(`${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`);
-        renderCalendar();
-        displayRightDiaries();
+        await setTargetDate(`${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`);
     };
 
-    function switchTab(tabName) {
+    // 전역 함수 바인딩 (HTML 태그 내 onclick 대응)
+    window.switchTab = function(tabName) {
         document.querySelectorAll('.cy-tab').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.menu-content').forEach(el => el.classList.remove('active'));
         document.getElementById(`tab-${tabName}`).classList.add('active');
         document.getElementById(`content-${tabName}`).classList.add('active');
     }
 
-    function loadHomeLists() {
-        renderHomeList('todo');
-        renderHomeList('wish');
+    // 1. 프로필 관리 영역
+    window.editTitle = function() {
+        const textSpan = document.getElementById('titleText');
+        const inputField = document.getElementById('titleInput');
+        inputField.value = textSpan.innerText;
+        textSpan.style.display = 'none'; inputField.style.display = 'inline-block'; inputField.focus();
+    }
+    window.saveTitle = async function() {
+        const textSpan = document.getElementById('titleText');
+        const inputField = document.getElementById('titleInput');
+        const newTitle = inputField.value.trim();
+        if (newTitle) { 
+            textSpan.innerText = newTitle; 
+            await setDoc(doc(db, "profile", "title"), { value: newTitle });
+        }
+        inputField.style.display = 'none'; textSpan.style.display = 'block';
+    }
+    async function loadTitle() {
+        const docSnap = await getDoc(doc(db, "profile", "title"));
+        if (docSnap.exists()) document.getElementById('titleText').innerText = docSnap.data().value;
     }
 
-    function renderHomeList(type) {
+    window.editStatus = function() {
+        const textSpan = document.getElementById('statusText');
+        const inputField = document.getElementById('statusInput');
+        inputField.value = textSpan.innerText === "지정된 상태메세지가 없다.. (더블클릭 수정)" ? "" : textSpan.innerText;
+        textSpan.style.display = 'none'; inputField.style.display = 'block'; inputField.focus();
+    }
+    window.saveStatus = async function() {
+        const textSpan = document.getElementById('statusText');
+        const inputField = document.getElementById('statusInput');
+        const newMsg = inputField.value.trim();
+        if (newMsg) { 
+            textSpan.innerText = newMsg; 
+            await setDoc(doc(db, "profile", "status"), { value: newMsg });
+        } else { 
+            textSpan.innerText = "지정된 상태메세지가 없다.. (클릭 수정)";
+            await deleteDoc(doc(db, "profile", "status"));
+        }
+        inputField.style.display = 'none'; textSpan.style.display = 'block';
+    }
+    async function loadStatus() {
+        const docSnap = await getDoc(doc(db, "profile", "status"));
+        if (docSnap.exists()) document.getElementById('statusText').innerText = docSnap.data().value;
+    }
+
+    // 2. 이미지 처리 구역 (Base64 파이어베이스 연동)
+    window.uploadPhoto = function(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const imgData = e.target.result;
+                document.getElementById('profileImg').src = imgData;
+                document.getElementById('profileImg').style.display = 'block';
+                document.getElementById('photoPlaceholder').style.display = 'none';
+                await setDoc(doc(db, "profile", "photo"), { value: imgData });
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+    async function loadProfilePhoto() {
+        const docSnap = await getDoc(doc(db, "profile", "photo"));
+        if (docSnap.exists()) {
+            const imgData = docSnap.data().value;
+            document.getElementById('profileImg').src = imgData;
+            document.getElementById('profileImg').style.display = 'block';
+            document.getElementById('photoPlaceholder').style.display = 'none';
+        }
+    }
+
+    window.uploadMiniroomPhoto = function(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const imgData = e.target.result;
+                const box = document.getElementById('miniroomBox');
+                box.style.backgroundImage = `url(${imgData})`;
+                document.getElementById('miniroomPlaceholder').style.display = 'none';
+                await setDoc(doc(db, "profile", "miniroom"), { value: imgData });
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+    async function loadMiniroomPhoto() {
+        const docSnap = await getDoc(doc(db, "profile", "miniroom"));
+        if (docSnap.exists()) {
+            const box = document.getElementById('miniroomBox');
+            box.style.backgroundImage = `url(${docSnap.data().value})`;
+            document.getElementById('miniroomPlaceholder').style.display = 'none';
+        }
+    }
+
+    // 3. 홈 리스트 (📌중요 일정 / 🎁위시리스트) 구역
+    async function loadHomeLists() {
+        await renderHomeList('todo');
+        await renderHomeList('wish');
+    }
+    async function renderHomeList(type) {
         const area = document.getElementById(type === 'todo' ? 'todoListArea' : 'wishListArea');
         area.innerHTML = '';
-        const key = type === 'todo' ? 'cyHomeTodo' : 'cyHomeWish';
-        const items = JSON.parse(localStorage.getItem(key) || '[]');
+        const docSnap = await getDoc(doc(db, "homeLists", type));
+        const items = docSnap.exists() ? docSnap.data().items : [];
 
         items.forEach((item, index) => {
             const li = document.createElement('li');
@@ -809,248 +915,33 @@
             area.appendChild(li);
         });
     }
-
-    function addHomeItem(type) {
+    window.addHomeItem = async function(type) {
         const input = document.getElementById(type === 'todo' ? 'todoInput' : 'wishInput');
         const value = input.value.trim();
         if(!value) return;
 
-        const key = type === 'todo' ? 'cyHomeTodo' : 'cyHomeWish';
-        const items = JSON.parse(localStorage.getItem(key) || '[]');
+        const docRef = doc(db, "homeLists", type);
+        const docSnap = await getDoc(docRef);
+        let items = docSnap.exists() ? docSnap.data().items : [];
         items.push(value);
-        localStorage.setItem(key, JSON.stringify(items));
-
+        
+        await setDoc(docRef, { items: items });
         input.value = '';
-        renderHomeList(type);
+        await renderHomeList(type);
     }
-
-    function removeHomeItem(type, index) {
-        const key = type === 'todo' ? 'cyHomeTodo' : 'cyHomeWish';
-        let items = JSON.parse(localStorage.getItem(key) || '[]');
-        items.splice(index, 1);
-        localStorage.setItem(key, JSON.stringify(items));
-        renderHomeList(type);
-    }
-
-    /* 미니룸 사진 로컬 업로드 처리 */
-    function uploadMiniroomPhoto(input) {
-        if (input.files && input.files[0]) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const imgData = e.target.result;
-                const box = document.getElementById('miniroomBox');
-                box.style.backgroundImage = `url(${imgData})`;
-                document.getElementById('miniroomPlaceholder').style.display = 'none';
-                localStorage.setItem('cyMiniroomPhoto', imgData);
-            };
-            reader.readAsDataURL(input.files[0]);
+    window.removeHomeItem = async function(type, index) {
+        const docRef = doc(db, "homeLists", type);
+        const docSnap = await getDoc(docRef);
+        if(docSnap.exists()) {
+            let items = docSnap.data().items;
+            items.splice(index, 1);
+            await setDoc(docRef, { items: items });
+            await renderHomeList(type);
         }
     }
 
-    function loadMiniroomPhoto() {
-        const savedImg = localStorage.getItem('cyMiniroomPhoto');
-        if (savedImg) {
-            const box = document.getElementById('miniroomBox');
-            box.style.backgroundImage = `url(${savedImg})`;
-            document.getElementById('miniroomPlaceholder').style.display = 'none';
-        }
-    }
-
-    function addReviewMsg() {
-        const type = document.getElementById('reviewType').value;
-        const title = document.getElementById('reviewTitle').value.trim();
-        const star = document.getElementById('reviewStar').value;
-        const comment = document.getElementById('reviewComment').value.trim();
-        
-        if(!star) { alert('별점을 선택해라..★'); return; }
-        if(!title || !comment) { alert('제목과 감상평을 모두 채워라..★'); return; }
-
-        const reviews = JSON.parse(localStorage.getItem('cyReviewData') || '[]');
-        // 구조 확장: subReviews(추가 리뷰 댓글 배열) 필드 추가
-        reviews.unshift({ 
-            id: Date.now(), 
-            type, 
-            title, 
-            star, 
-            comment, 
-            date: new Date().toLocaleDateString(),
-            subReviews: [] 
-        });
-        localStorage.setItem('cyReviewData', JSON.stringify(reviews));
-        
-        document.getElementById('reviewTitle').value = '';
-        document.getElementById('reviewStar').value = '';
-        document.getElementById('reviewComment').value = '';
-        loadReviewMsgs();
-    }
-
-    /* 특정 리뷰 카드에 추가 리뷰(댓글) 다는 함수 */
-    function addSubReview(reviewId) {
-        const inputField = document.getElementById(`subInput-${reviewId}`);
-        const text = inputField.value.trim();
-        if(!text) { alert('추가 리뷰 내용을 입력해라..★'); return; }
-
-        let reviews = JSON.parse(localStorage.getItem('cyReviewData') || '[]');
-        const targetIndex = reviews.findIndex(r => r.id === reviewId);
-        
-        if(targetIndex !== -1) {
-            if(!reviews[targetIndex].subReviews) reviews[targetIndex].subReviews = [];
-            reviews[targetIndex].subReviews.push({
-                id: Date.now(),
-                comment: text,
-                date: new Date().toLocaleDateString()
-            });
-            localStorage.setItem('cyReviewData', JSON.stringify(reviews));
-            loadReviewMsgs();
-        }
-    }
-
-    /* 추가 리뷰(댓글) 개별 삭제 기능 */
-    function deleteSubReview(reviewId, subId) {
-        if(!confirm('이 추가 리뷰를 삭제하겠느냐..★')) return;
-        let reviews = JSON.parse(localStorage.getItem('cyReviewData') || '[]');
-        const targetIndex = reviews.findIndex(r => r.id === reviewId);
-        
-        if(targetIndex !== -1 && reviews[targetIndex].subReviews) {
-            reviews[targetIndex].subReviews = reviews[targetIndex].subReviews.filter(s => s.id !== subId);
-            localStorage.setItem('cyReviewData', JSON.stringify(reviews));
-            loadReviewMsgs();
-        }
-    }
-
-    function deleteReviewMsg(id) {
-        if(!confirm('리뷰 기록을 삭제하겠느냐..★')) return;
-        let reviews = JSON.parse(localStorage.getItem('cyReviewData') || '[]');
-        reviews = reviews.filter(r => r.id !== id);
-        localStorage.setItem('cyReviewData', JSON.stringify(reviews));
-        loadReviewMsgs();
-    }
-
-    /* 필터 변경 함수들 (카테고리 / 별점 구분 관리) */
-    function filterReviewType(type) {
-        currentReviewTypeFilter = type;
-        document.querySelectorAll('[id^="f-type-"]').forEach(btn => btn.classList.remove('active'));
-        document.getElementById(`f-type-${type}`).classList.add('active');
-        loadReviewMsgs();
-    }
-
-    function filterReviewStar(star) {
-        currentReviewStarFilter = star;
-        document.querySelectorAll('[id^="f-star-"]').forEach(btn => btn.classList.remove('active'));
-        
-        let targetId = 'all';
-        if(star !== 'all') {
-            targetId = star.length; // 별 개수 매핑 (1~5)
-        }
-        document.getElementById(`f-star-${targetId}`).classList.add('active');
-        loadReviewMsgs();
-    }
-
-    function loadReviewMsgs() {
-        const area = document.getElementById('reviewListArea');
-        area.innerHTML = '';
-        let reviews = JSON.parse(localStorage.getItem('cyReviewData') || '[]');
-        
-        // 1차 카테고리 종류 필터링
-        if(currentReviewTypeFilter !== 'all') {
-            reviews = reviews.filter(r => r.type === currentReviewTypeFilter);
-        }
-        // 2차 별점 조건 필터링 추가
-        if(currentReviewStarFilter !== 'all') {
-            reviews = reviews.filter(r => r.star === currentReviewStarFilter);
-        }
-        
-        const typeNames = { movie: '영화', comic: '만화', book: '책', etc: '기타' };
-
-        reviews.forEach(r => {
-            const el = document.createElement('div');
-            el.className = 'board-item';
-            
-            // 기존 서브리뷰 데이터 안전성 검사
-            const subs = r.subReviews || [];
-            let subListHtml = '';
-            subs.forEach(s => {
-                subListHtml += `
-                    <div class="sub-review-item">
-                        <span>ㄴ ${s.comment}</span>
-                        <div>
-                            <span style="color:#aaa; font-size:9px;">${s.date}</span>
-                            <span style="color:#ff8888; cursor:pointer; margin-left:4px;" onclick="deleteSubReview(${r.id}, ${s.id})">[x]</span>
-                        </div>
-                    </div>
-                `;
-            });
-
-            el.innerHTML = `
-                <div class="board-header">
-                    <div>
-                        <span class="tag-badge tag-${r.type}">${typeNames[r.type] || '기타'}</span>
-                        <span style="color:#333; font-weight:bold;">${r.title}</span>
-                    </div>
-                    <span style="font-size:11px; font-weight:normal;">${r.star}</span>
-                </div>
-                <div style="padding:4px 0; color:#555; display:flex; justify-content:between; align-items:center;">
-                    <span style="flex:1;">${r.comment}</span>
-                    <span style="color:#aaa; font-size:10px; margin-left:10px;">${r.date}</span>
-                    <span style="color:#ff8888; cursor:pointer; font-size:10px; margin-left:8px;" onclick="deleteReviewMsg(${r.id})">[X]</span>
-                </div>
-                
-                <!-- 하단 추가 리뷰 영역 디자인 조립 -->
-                <div class="sub-review-section">
-                    <div class="sub-review-list">${subListHtml || '<div style="color:#aaa; font-size:10px;">작성된 추가 리뷰가 없다..★</div>'}</div>
-                    <div class="sub-review-input-row">
-                        <input type="text" id="subInput-${r.id}" placeholder="이 리뷰에 생각 더하기..★" class="cy-input" style="flex:1; font-size:10px; padding:2px;">
-                        <button class="btn-action btn-submit" style="padding:2px 6px; font-size:10px; background:#2478A6;" onclick="addSubReview(${r.id})">추가</button>
-                    </div>
-                </div>
-            `;
-            area.appendChild(el);
-        });
-    }
-
-    function addGuestMsg() {
-        const name = document.getElementById('guestName').value.trim();
-        const msg = document.getElementById('guestMsg').value.trim();
-        if(!name || !msg) { alert('이름과 한마디를 다 채워라..★'); return; }
-
-        const msgs = JSON.parse(localStorage.getItem('cyGuestbookData') || '[]');
-        msgs.unshift({ id: Date.now(), name: name, msg: msg, date: new Date().toLocaleDateString() });
-        localStorage.setItem('cyGuestbookData', JSON.stringify(msgs));
-        document.getElementById('guestName').value = '';
-        document.getElementById('guestMsg').value = '';
-        loadGuestbookMsgs();
-    }
-
-    function deleteGuestMsg(id) {
-        if(!confirm('이 방명록 글을 삭제하겠느냐..★')) return;
-        let msgs = JSON.parse(localStorage.getItem('cyGuestbookData') || '[]');
-        msgs = msgs.filter(m => m.id !== id);
-        localStorage.setItem('cyGuestbookData', JSON.stringify(msgs));
-        loadGuestbookMsgs();
-    }
-
-    function loadGuestbookMsgs() {
-        const area = document.getElementById('guestbookListArea');
-        area.innerHTML = '';
-        const msgs = JSON.parse(localStorage.getItem('cyGuestbookData') || '[]');
-        msgs.forEach(m => {
-            const el = document.createElement('div');
-            el.className = 'board-item';
-            el.innerHTML = `
-                <div class="board-header">
-                    <span>🧑 ${m.name}</span>
-                    <div>
-                        <span style="color:#aaa; font-size:10px; margin-right:6px;">${m.date}</span>
-                        <span style="color:#ff8888; cursor:pointer; font-size:10px;" onclick="deleteGuestMsg(${m.id})">[X]</span>
-                    </div>
-                </div>
-                <div style="padding:4px 0; color:#555;">${m.msg}</div>
-            `;
-            area.appendChild(el);
-        });
-    }
-
-    function renderCalendar() {
+    // 4. 다이어리 제어 구역
+    window.renderCalendar = async function() {
         document.getElementById('calendarTitle').innerText = `${calYear}. ${String(calMonth + 1).padStart(2, '0')}`;
         const grid = document.getElementById('calendarGrid');
         grid.innerHTML = '';
@@ -1079,7 +970,10 @@
             grid.appendChild(cell);
         }
 
-        const diaries = JSON.parse(localStorage.getItem('cyDiary') || '{}');
+        const querySnapshot = await getDocs(collection(db, "diaries"));
+        const diaryKeys = {};
+        querySnapshot.forEach(doc => { diaryKeys[doc.id] = true; });
+
         for (let d = 1; d <= lastDay.getDate(); d++) {
             const cell = document.createElement('div');
             cell.className = 'cal-cell';
@@ -1091,38 +985,40 @@
             if(checkDate.getDay() === 6) cell.style.color = '#2478A6';
             if(checkDate.getDay() === 0) cell.style.color = '#FF6600';
 
-            if (diaries[currentKey]) cell.classList.add('has-diary');
+            if (diaryKeys[currentKey]) cell.classList.add('has-diary');
             if (currentKey === currentSelectedKey) cell.classList.add('selected');
 
-            cell.onclick = () => {
-                setTargetDate(currentKey);
-                renderCalendar();
+            cell.onclick = async () => {
+                await setTargetDate(currentKey);
+                await renderCalendar();
                 switchTab('diary');
             };
             grid.appendChild(cell);
         }
     }
 
-    function moveMonth(dir) {
+    window.moveMonth = async function(dir) {
         calMonth += dir;
         if (calMonth > 11) { calMonth = 0; calYear++; }
         else if (calMonth < 0) { calMonth = 11; calYear--; }
-        renderCalendar();
+        await renderCalendar();
     }
 
-    function setTargetDate(dateVal) {
+    async function setTargetDate(dateVal) {
         currentSelectedKey = dateVal;
         const [y, m, d] = dateVal.split('-');
         const targetDate = new Date(y, m - 1, d);
         dateDisplay.innerText = `▶ ${y}년 ${m}월 ${d}일 ${korDays[targetDate.getDay()]}의 기록..`;
-        checkDiaryByDate(currentSelectedKey);
+        await checkDiaryByDate(currentSelectedKey);
+        await displayRightDiaries();
     }
 
-    function checkDiaryByDate(dateKey) {
-        const diaries = JSON.parse(localStorage.getItem('cyDiary') || '{}');
-        if (diaries[dateKey]) {
-            textarea.value = diaries[dateKey];
-            document.getElementById('charNum').innerText = diaries[dateKey].length;
+    async function checkDiaryByDate(dateKey) {
+        const docSnap = await getDoc(doc(db, "diaries", dateKey));
+        if (docSnap.exists()) {
+            const content = docSnap.data().content;
+            textarea.value = content;
+            document.getElementById('charNum').innerText = content.length;
             submitBtn.innerText = '수정..';
             deleteBtn.style.display = 'inline-block';
         } else {
@@ -1133,48 +1029,49 @@
         }
     }
 
-    function saveDiary() {
+    window.saveDiary = async function() {
         const text = textarea.value.trim();
         if(!text) { alert('내용을 입력해라.. 인간아..'); return; }
-        const diaries = JSON.parse(localStorage.getItem('cyDiary') || '{}');
-        diaries[currentSelectedKey] = text;
-        localStorage.setItem('cyDiary', JSON.stringify(diaries));
+        
+        await setDoc(doc(db, "diaries", currentSelectedKey), { content: text, timestamp: Date.now() });
         alert(submitBtn.innerText === '수정..' ? '일기가 수정되었다..' : '일기가 등록 완료..');
-        renderCalendar();
-        displayRightDiaries();
-        checkDiaryByDate(currentSelectedKey);
+        await renderCalendar();
+        await displayRightDiaries();
+        await checkDiaryByDate(currentSelectedKey);
     }
 
-    function deleteDiary() {
+    window.deleteDiary = async function() {
         if(!confirm('정말로 이 날의 기억을 지우겠느냐..★')) return;
-        const diaries = JSON.parse(localStorage.getItem('cyDiary') || '{}');
-        delete diaries[currentSelectedKey];
-        localStorage.setItem('cyDiary', JSON.stringify(diaries));
+        await deleteDoc(doc(db, "diaries", currentSelectedKey));
         alert('기억이 깨끗이 지워졌다..');
-        renderCalendar();
-        displayRightDiaries();
-        checkDiaryByDate(currentSelectedKey);
+        await renderCalendar();
+        await displayRightDiaries();
+        await checkDiaryByDate(currentSelectedKey);
     }
 
-    function displayRightDiaries() {
+    window.displayRightDiaries = async function() {
         const listContainer = document.getElementById('rightDiaryList');
         listContainer.innerHTML = '';
-        const diaries = JSON.parse(localStorage.getItem('cyDiary') || '{}');
-        const sortedKeys = Object.keys(diaries).sort();
+        
+        const querySnapshot = await getDocs(collection(db, "diaries"));
         const targetYear = yearFilter.value;
         const targetMonth = monthFilter.value;
         let count = 0;
 
-        sortedKeys.forEach(key => {
-            const [y, m, d] = key.split('-');
+        const sortedDocs = [];
+        querySnapshot.forEach(doc => { sortedDocs.push({ id: doc.id, content: doc.data().content }); });
+        sortedDocs.sort((a,b) => a.id.localeCompare(b.id));
+
+        sortedDocs.forEach(diary => {
+            const [y, m, d] = diary.id.split('-');
             if (y === targetYear && m === targetMonth) {
                 count++;
                 const item = document.createElement('div');
                 item.className = 'right-diary-item';
-                item.innerHTML = `<span>[${parseInt(d)}일]</span> ${diaries[key]}`;
-                item.onclick = () => {
+                item.innerHTML = `<span>[${parseInt(d)}일]</span> ${diary.content}`;
+                item.onclick = async () => {
                     calYear = parseInt(y); calMonth = parseInt(m) - 1;
-                    setTargetDate(key); renderCalendar(); switchTab('diary');
+                    await setTargetDate(diary.id); await renderCalendar(); switchTab('diary');
                 };
                 listContainer.appendChild(item);
             }
@@ -1182,128 +1079,195 @@
         if (count === 0) listContainer.innerHTML = `<div style="color:#999; text-align:center; padding:5px 0;">이 달엔 남긴 기억이 없다..</div>`;
     }
 
-    function uploadPhoto(input) {
-        if (input.files && input.files[0]) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const imgData = e.target.result;
-                document.getElementById('profileImg').src = imgData;
-                document.getElementById('profileImg').style.display = 'block';
-                document.getElementById('photoPlaceholder').style.display = 'none';
-                localStorage.setItem('cyProfilePhoto', imgData);
-            };
-            reader.readAsDataURL(input.files[0]);
+    // 5. 리뷰 제어 구역
+    window.addReviewMsg = async function() {
+        const type = document.getElementById('reviewType').value;
+        const title = document.getElementById('reviewTitle').value.trim();
+        const star = document.getElementById('reviewStar').value;
+        const comment = document.getElementById('reviewComment').value.trim();
+        
+        if(!star) { alert('별점을 선택해라..★'); return; }
+        if(!title || !comment) { alert('제목과 감상평을 모두 채워라..★'); return; }
+
+        await addDoc(collection(db, "reviews"), {
+            type, title, star, comment,
+            date: new Date().toLocaleDateString(),
+            timestamp: Date.now(),
+            subReviews: []
+        });
+        
+        document.getElementById('reviewTitle').value = '';
+        document.getElementById('reviewStar').value = '';
+        document.getElementById('reviewComment').value = '';
+        await loadReviewMsgs();
+    }
+
+    window.addSubReview = async function(reviewId) {
+        const inputField = document.getElementById(`subInput-${reviewId}`);
+        const text = inputField.value.trim();
+        if(!text) { alert('추가 리뷰 내용을 입력해라..★'); return; }
+
+        const docRef = doc(db, "reviews", reviewId);
+        const docSnap = await getDoc(docRef);
+        
+        if(docSnap.exists()) {
+            let subReviews = docSnap.data().subReviews || [];
+            subReviews.push({
+                id: String(Date.now()),
+                comment: text,
+                date: new Date().toLocaleDateString()
+            });
+            await setDoc(docRef, { subReviews: subReviews }, { merge: true });
+            await loadReviewMsgs();
         }
     }
-    function loadProfilePhoto() {
-        const savedImg = localStorage.getItem('cyProfilePhoto');
-        if (savedImg) {
-            document.getElementById('profileImg').src = savedImg;
-            document.getElementById('profileImg').style.display = 'block';
-            document.getElementById('photoPlaceholder').style.display = 'none';
+
+    window.deleteSubReview = async function(reviewId, subId) {
+        if(!confirm('이 추가 리뷰를 삭제하겠느냐..★')) return;
+        const docRef = doc(db, "reviews", reviewId);
+        const docSnap = await getDoc(docRef);
+        
+        if(docSnap.exists()) {
+            let subReviews = docSnap.data().subReviews || [];
+            subReviews = subReviews.filter(s => s.id !== String(subId));
+            await setDoc(docRef, { subReviews: subReviews }, { merge: true });
+            await loadReviewMsgs();
         }
     }
-    document.getElementById('statusText').onclick = editStatus; 
-    function editStatus() {
-        const textSpan = document.getElementById('statusText');
-        const inputField = document.getElementById('statusInput');
-        inputField.value = textSpan.innerText === "지정된 상태메세지가 없다.. (클릭 수정)" ? "" : textSpan.innerText;
-        textSpan.style.display = 'none'; inputField.style.display = 'block'; inputField.focus();
+
+    window.deleteReviewMsg = async function(id) {
+        if(!confirm('리뷰 기록을 삭제하겠느냐..★')) return;
+        await deleteDoc(doc(db, "reviews", id));
+        await loadReviewMsgs();
     }
-    function saveStatus() {
-        const textSpan = document.getElementById('statusText');
-        const inputField = document.getElementById('statusInput');
-        const newMsg = inputField.value.trim();
-        if (newMsg) { textSpan.innerText = newMsg; localStorage.setItem('cyStatusMsg', newMsg); } 
-        else { textSpan.innerText = "지정된 상태메세지가 없다.. (클릭 수정)"; localStorage.removeItem('cyStatusMsg'); }
-        inputField.style.display = 'none'; textSpan.style.display = 'block';
+
+    window.filterReviewType = function(type) {
+        currentReviewTypeFilter = type;
+        document.querySelectorAll('[id^="f-type-"]').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`f-type-${type}`).classList.add('active');
+        loadReviewMsgs();
     }
-    function loadTitle() {
-        const savedTitle = localStorage.getItem('cyDiaryTitle');
-        if (savedTitle) document.getElementById('titleText').innerText = savedTitle;
+
+    window.filterReviewStar = function(star) {
+        currentReviewStarFilter = star;
+        document.querySelectorAll('[id^="f-star-"]').forEach(btn => btn.classList.remove('active'));
+        
+        let targetId = 'all';
+        if(star !== 'all') {
+            targetId = star.length; 
+        }
+        document.getElementById(`f-star-${targetId}`).classList.add('active');
+        loadReviewMsgs();
     }
-    document.getElementById('titleText').onclick = editTitle;
-    function editTitle() {
-        const textSpan = document.getElementById('titleText');
-        const inputField = document.getElementById('titleInput');
-        inputField.value = textSpan.innerText;
-        textSpan.style.display = 'none'; inputField.style.display = 'inline-block'; inputField.focus();
+
+    window.loadReviewMsgs = async function() {
+        const area = document.getElementById('reviewListArea');
+        area.innerHTML = '';
+        
+        const q = query(collection(db, "reviews"), orderBy("timestamp", "desc"));
+        const querySnapshot = await getDocs(q);
+        
+        const typeNames = { movie: '영화', comic: '만화', book: '책', etc: '기타' };
+
+        querySnapshot.forEach(docSnap => {
+            const r = docSnap.data();
+            r.id = docSnap.id;
+
+            if(currentReviewTypeFilter !== 'all' && r.type !== currentReviewTypeFilter) return;
+            if(currentReviewStarFilter !== 'all' && r.star !== currentReviewStarFilter) return;
+            
+            const subs = r.subReviews || [];
+            let subListHtml = '';
+            subs.forEach(s => {
+                subListHtml += `
+                    <div class="sub-review-item">
+                        <span>ㄴ ${s.comment}</span>
+                        <div>
+                            <span style="color:#aaa; font-size:9px;">${s.date}</span>
+                            <span style="color:#ff8888; cursor:pointer; margin-left:4px;" onclick="deleteSubReview('${r.id}', '${s.id}')">[x]</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            const el = document.createElement('div');
+            el.className = 'board-item';
+            el.innerHTML = `
+                <div class="board-header">
+                    <div>
+                        <span class="tag-badge tag-${r.type}">${typeNames[r.type] || '기타'}</span>
+                        <span style="color:#333; font-weight:bold;">${r.title}</span>
+                    </div>
+                    <span style="font-size:11px; font-weight:normal;">${r.star}</span>
+                </div>
+                <div style="padding:4px 0; color:#555; display:flex; justify-content:between; align-items:center;">
+                    <span style="flex:1;">${r.comment}</span>
+                    <span style="color:#aaa; font-size:10px; margin-left:10px;">${r.date}</span>
+                    <span style="color:#ff8888; cursor:pointer; font-size:10px; margin-left:8px;" onclick="deleteReviewMsg('${r.id}')">[X]</span>
+                </div>
+                <div class="sub-review-section">
+                    <div class="sub-review-list">${subListHtml || '<div style="color:#aaa; font-size:10px;">작성된 추가 리뷰가 없다..★</div>'}</div>
+                    <div class="sub-review-input-row">
+                        <input type="text" id="subInput-${r.id}" placeholder="이 리뷰에 생각 더하기..★" class="cy-input" style="flex:1; font-size:10px; padding:2px;">
+                        <button class="btn-action btn-submit" style="padding:2px 6px; font-size:10px; background:#2478A6;" onclick="addSubReview('${r.id}')">추가</button>
+                    </div>
+                </div>
+            `;
+            area.appendChild(el);
+        });
     }
-    function saveTitle() {
-        const textSpan = document.getElementById('titleText');
-        const inputField = document.getElementById('titleInput');
-        const newTitle = inputField.value.trim();
-        if (newTitle) { textSpan.innerText = newTitle; localStorage.setItem('cyDiaryTitle', newTitle); }
-        inputField.style.display = 'none'; textSpan.style.display = 'block';
+
+    // 6. 방명록 제어 구역
+    window.addGuestMsg = async function() {
+        const name = document.getElementById('guestName').value.trim();
+        const msg = document.getElementById('guestMsg').value.trim();
+        if(!name || !msg) { alert('이름과 한마디를 다 채워라..★'); return; }
+
+        await addDoc(collection(db, "guestbook"), {
+            name: name, msg: msg,
+            date: new Date().toLocaleDateString(),
+            timestamp: Date.now()
+        });
+
+        document.getElementById('guestName').value = '';
+        document.getElementById('guestMsg').value = '';
+        await loadGuestbookMsgs();
     }
-    function loadStatus() {
-        const savedMsg = localStorage.getItem('cyStatusMsg');
-        if (savedMsg) document.getElementById('statusText').innerText = savedMsg;
+
+    window.deleteGuestMsg = async function(id) {
+        if(!confirm('이 방명록 글을 삭제하겠느냐..★')) return;
+        await deleteDoc(doc(db, "guestbook", id));
+        await loadGuestbookMsgs();
     }
+
+    window.loadGuestbookMsgs = async function() {
+        const area = document.getElementById('guestbookListArea');
+        area.innerHTML = '';
+        
+        const q = query(collection(db, "guestbook"), orderBy("timestamp", "desc"));
+        const querySnapshot = await getDocs(q);
+
+        querySnapshot.forEach(docSnap => {
+            const m = docSnap.data();
+            const el = document.createElement('div');
+            el.className = 'board-item';
+            el.innerHTML = `
+                <div class="board-header">
+                    <span>🧑 ${m.name}</span>
+                    <div>
+                        <span style="color:#aaa; font-size:10px; margin-right:6px;">${m.date}</span>
+                        <span style="color:#ff8888; cursor:pointer; font-size:10px;" onclick="deleteGuestMsg('${docSnap.id}')">[X]</span>
+                    </div>
+                </div>
+                <div style="padding:4px 0; color:#555;">${m.msg}</div>
+            `;
+            area.appendChild(el);
+        });
+    }
+
     textarea.addEventListener('input', function() {
         document.getElementById('charNum').innerText = this.value.length;
     });
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
-
-  // 너의 파이어베이스 설정
-  const firebaseConfig = {
-    apiKey: "AIzaSyAQdepCMLBffqjEhAvWM4NclP1P80MiL5M",
-    authDomain: "eungview-5e3f2.firebaseapp.com",
-    projectId: "eungview-5e3f2",
-    storageBucket: "eungview-5e3f2.firebasestorage.app",
-    messagingSenderId: "513419971849",
-    appId: "1:513419971849:web:ae7e4e8ebdaf7d182e97d8",
-    measurementId: "G-6VRHB68Y0X"
-  };
-
-  // 파이어베이스 초기화
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-
-  // --- 기존 로컬스토리지 함수들을 파이어베이스용으로 대체하는 예시 ---
-
-  // 1. 일기 저장 함수 (파이어베이스 Firestore에 저장)
-  window.saveDiary = async function() {
-    const text = textarea.value.trim();
-    if(!text) { alert('내용을 입력해라.. 인간아..'); return; }
-
-    try {
-      // 'diaries'라는 컬렉션에 날짜별로 문서 저장
-      await setDoc(doc(db, "diaries", currentSelectedKey), {
-        content: text,
-        date: currentSelectedKey
-      });
-      alert('일기가 파이어베이스에 등록 완료..★');
-      renderCalendar();
-      displayRightDiaries();
-    } catch (e) {
-      console.error("저장 실패: ", e);
-    }
-  }
-
-  // 2. 일기 불러오기 함수
-  window.checkDiaryByDate = async function(dateKey) {
-    const docRef = doc(db, "diaries", dateKey);
-    const docSnap = await getDoc(docRef);
-
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      textarea.value = data.content;
-      document.getElementById('charNum').innerText = data.content.length;
-      submitBtn.innerText = '수정..';
-      deleteBtn.style.display = 'inline-block';
-    } else {
-      textarea.value = '';
-      document.getElementById('charNum').innerText = 0;
-      submitBtn.innerText = '등록..';
-      deleteBtn.style.display = 'none';
-    }
-  }
-
-  // 방명록, 리뷰 등 다른 함수들도 이런 식으로 localStorage.setItem 대신 
-  // addDoc(collection(db, "guestbook"), ...) 형태로 전부 고쳐주어야 링크로 접속했을 때 다른 사람들에게도 내용이 똑같이 저장되고 보인단다!
 </script>
 
 </body>
